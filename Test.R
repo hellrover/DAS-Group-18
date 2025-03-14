@@ -7,7 +7,7 @@ library(jtools)
 library(MASS)
 library(pscl)
 
-
+#Ab
 data<-read.csv("dataset18.csv")
 glimpse(data)
 ggplot(data,aes(x=time_at_shelter))+
