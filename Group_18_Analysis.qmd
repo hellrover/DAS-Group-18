@@ -56,7 +56,15 @@ animal_data[,'time_at_shelter'] %>%
   skim()
 ```
 
-The mean time spent is around six days. Additionally, 25% of the animals stayed less for one day and less. Also, 75% of the animals present stayed for nine days and less and the distribution(hist plot) is right skewed depicting most animals spent quite less time in general.
+The mean time spent is around six days. Additionally, 25% of the animals stayed less for one day and less. Also, 75% of the animals present stayed for nine days and less
+
+The distribution(hist plot) is right skewed depicting most animals spent quite less time in general.
+
+```{r}
+ggplot(animal_data, mapping = aes(x=time_at_shelter))+
+  geom_histogram(binwidth = 5, color="black")+
+  labs(title = "Distribution of response variable", x="Time at shelter", y="Count")
+```
 
 Now, let's look at the correlation between time of the year and the time an animal spent at the shelter.
 
@@ -73,7 +81,7 @@ Looking at the summary stats for response when grouped by the type of animals-
 ```{r}
 animal_data%>%
   group_by(animal_type) %>%
-  summarize(count=n(), median = median(time_at_shelter), mean = mean(time_at_shelter), quantile_75 = quantile(time_at_shelter, 0.75))
+  summarize(count=n(), median = median(time_at_shelter), mean = mean(time_at_shelter), Std_Dev = sd(time_at_shelter),quantile_25 = quantile(time_at_shelter, 0.25), quantile_75 = quantile(time_at_shelter, 0.75))
 ```
 
 Boxplot depicting the summary stats above can be seen as-
@@ -90,12 +98,13 @@ It can be clearly seen that both BIRD and LIVESTOCK spent zero days at the shelt
 ```{r}
 ggplot(data=animal_data, aes(x=intake_type, y=time_at_shelter, fill=outcome_type))+
   geom_col(position = "dodge")+
-  labs(x = "Intake type by outcome", y = "Time Spent at Shelter", title = "Time spent at shelter vs Outcome of the animals & their intake") 
+  labs(x = "Intake type by outcome", y = "Time Spent at Shelter", title = "Time spent at shelter vs Outcome of the animals & their intake") +
+  scale_fill_viridis_d(option = "G")
 ```
 
 It can be seen from the column graph that the animal that spent the most time at shelter where the intake was owner surrendering was Euthanised and where intake was stray they were adopted at the end.
 
-## Handling Outliers
+## Remove irrelavant categories
 
 ```{r}
 #Removing irrelavant/outnumbered categories
@@ -105,45 +114,22 @@ animal.sub<- animal_data%>%
 ```
 
 ```{r}
-#Removing outliers for DOG
-animal.subDog<- animal.sub %>%
-  filter(animal_type=='DOG' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
-```
-
-```{r}
-#Removing outliers for CAT
-animal.subCat<- animal.sub %>%
-  filter(animal_type=='CAT' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
-```
-
-```{r}
-#Removing outliers for WILDLIFE
-animal.subWild<- animal.sub %>%
-  filter(animal_type=='WILDLIFE' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
-```
-
-```{r}
-#Binding the final data now
-Animal.total <- rbind(animal.subCat, animal.subDog,animal.subWild)
-Animal.total
-```
-
-```{r}
-ggplot(Animal.total, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
+ggplot(animal.sub, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
   geom_boxplot()+
-  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by different types of animal") +
+  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by selected animal types") +
   scale_fill_viridis_d(option = "G") 
 ```
 
-## Model fit without the outliers
+## Model fit
 
 ```{r}
-model3<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_status,data=Animal.total)
-summary(model3)
+
+model_nb<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_status,data=animal.sub)
+summary(model_nb)
 ```
 
 ```{r}
-plot(model3$fitted.values, residuals(model3, type = "deviance"),
+plot(model_nb$fitted.values, residuals(model3, type = "deviance"),
      xlab = "fitted value", ylab = "residual", main = "nb residual")
 abline(h = 0, col = "red")
 ```
