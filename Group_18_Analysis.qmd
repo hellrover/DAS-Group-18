@@ -133,3 +133,5 @@ plot(model_nb$fitted.values, residuals(model3, type = "deviance"),
      xlab = "fitted value", ylab = "residual", main = "nb residual")
 abline(h = 0, col = "red")
 ```
+
+#BOB
