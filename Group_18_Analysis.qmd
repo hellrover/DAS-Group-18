@@ -1,0 +1,149 @@
+---
+title: "Factors Influencing the Length of Stay for Shelter Animals"
+author: "Group 18"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: false
+  eval: true
+  warning: false
+  message: false
+  geometry: margin=1in,landscape
+header-includes:
+  - \usepackage{float}  
+  - \floatplacement{figure}{H}  
+  - \floatplacement{table}{H}
+---
+
+Importing necessary libraries and loading the dataset:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(moderndive)
+library(gapminder)
+library(skimr)
+animal_data<- read.csv("/Users/abhinavsingh/Downloads/dataset18.csv")
+```
+
+## Introduction
+
+The dataset, acquired from the Dallas animal shelter, encompasses comprehensive information regarding each animal admitted to the facility. It contains vital details such as the type of animal namely {dogs, cats, wildlife, bird, livestock}, the reason for admission, and the eventual outcome i.e whether they were euthanised, returned to the owner, adopted, foster or died. This study aims to investigate a fundamental question:
+
+-   **What are the factors that influence the time an animal spends at shelter before their final outcome**
+
+## Exploratory Data Analysis
+
+Taking a closer look at the dataset:
+
+```{r}
+head(animal_data)
+```
+
+```{r}
+glimpse(animal_data)
+```
+
+Let's look at the summary statistic for our response variable i.e the time an animal spends at a shelter before their final outcome.
+
+```{r}
+animal_data[,'time_at_shelter'] %>%
+  skim()
+```
+
+The mean time spent is around six days. Additionally, 25% of the animals stayed less for one day and less. Also, 75% of the animals present stayed for nine days and less and the distribution(hist plot) is right skewed depicting most animals spent quite less time in general.
+
+Now, let's look at the correlation between time of the year and the time an animal spent at the shelter.
+
+```{r}
+animal_data %>%
+  dplyr::select(month, time_at_shelter)%>%
+  get_correlation(formula = time_at_shelter~month)
+```
+
+The above coefficient states that there is very weak positive correlation between an animals time at shelter and the month of an year.
+
+Looking at the summary stats for response when grouped by the type of animals-
+
+```{r}
+animal_data%>%
+  group_by(animal_type) %>%
+  summarize(count=n(), median = median(time_at_shelter), mean = mean(time_at_shelter), quantile_75 = quantile(time_at_shelter, 0.75))
+```
+
+Boxplot depicting the summary stats above can be seen as-
+
+```{r}
+ggplot(animal_data, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
+  geom_boxplot()+
+  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by different types of animal") +
+  scale_fill_viridis_d(option = "G") 
+```
+
+It can be clearly seen that both BIRD and LIVESTOCK spent zero days at the shelter, whereas there are some significant outliers for DOGS and CATS where median time is four and three days respectively but some recorded dogs and cats spent more than twenty days and the extremes being around seventy days.
+
+```{r}
+ggplot(data=animal_data, aes(x=intake_type, y=time_at_shelter, fill=outcome_type))+
+  geom_col(position = "dodge")+
+  labs(x = "Intake type by outcome", y = "Time Spent at Shelter", title = "Time spent at shelter vs Outcome of the animals & their intake") 
+```
+
+It can be seen from the column graph that the animal that spent the most time at shelter where the intake was owner surrendering was Euthanised and where intake was stray they were adopted at the end.
+
+## Handling Outliers
+
+```{r}
+#Removing irrelavant/outnumbered categories
+
+animal.sub<- animal_data%>%
+  filter(animal_type!='BIRD' & animal_type !='LIVESTOCK')
+```
+
+```{r}
+#Removing outliers for DOG
+animal.subDog<- animal.sub %>%
+  filter(animal_type=='DOG' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
+```
+
+```{r}
+#Removing outliers for CAT
+animal.subCat<- animal.sub %>%
+  filter(animal_type=='CAT' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
+```
+
+```{r}
+#Removing outliers for WILDLIFE
+animal.subWild<- animal.sub %>%
+  filter(animal_type=='WILDLIFE' & time_at_shelter<= quantile(time_at_shelter, 0.75)+1.5*(quantile(time_at_shelter, 0.75)-quantile(time_at_shelter, 0.25)))
+```
+
+```{r}
+#Binding the final data now
+Animal.total <- rbind(animal.subCat, animal.subDog,animal.subWild)
+Animal.total
+```
+
+```{r}
+ggplot(Animal.total, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
+  geom_boxplot()+
+  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by different types of animal") +
+  scale_fill_viridis_d(option = "G") 
+```
+
+## Model fit without the outliers
+
+```{r}
+model3<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_status,data=Animal.total)
+summary(model3)
+```
+
+```{r}
+plot(model3$fitted.values, residuals(model3, type = "deviance"),
+     xlab = "fitted value", ylab = "residual", main = "nb residual")
+abline(h = 0, col = "red")
+```
