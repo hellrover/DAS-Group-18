@@ -4,10 +4,9 @@ author: "Group 18"
 format: 
   html:
     embed-resources: true
-    code-tools: true
   pdf: default
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 execute:
   echo: false
   eval: true
@@ -30,7 +29,8 @@ library(gapminder)
 library(skimr)
 library(MASS)
 library(AER)
-animal_data<- read.csv("dataset18.csv")
+library(pscl)
+animal_data<- read.csv("/Users/abhinavsingh/Documents/GitHub/DAS-Group-18/dataset18.csv")
 ```
 
 ## Introduction
@@ -104,9 +104,9 @@ ggplot(data=animal_data, aes(x=intake_type, y=time_at_shelter, fill=outcome_type
   scale_fill_viridis_d(option = "G")
 ```
 
-It can be seen from the column graph that the animal that spent the most time at shelter where the intake was owner surrendering was Euthanised and where intake was stray they were adopted at the end.
+It can be seen from the column graph that the animal that spent the most time at shelter where the intake was owner surrendering was Euthanize and where intake was stray they were adopted at the end.
 
-## Remove irrelavant categories
+## Remove irrelevant categories
 
 ```{r}
 #Removing irrelavant/outnumbered categories
@@ -153,7 +153,7 @@ ggplot(residual_poi,aes(x = fitted_poi, y=resid_poi)) +
        y="Residual")
 ```
 
-From the plot, we can see the residual deviances of the poisson model seem to have 0 mean. But the variace seems lager on the positive side.
+From the plot, we can see the residual deviances of the poisson model seem to have 0 mean. But the variance seems larger on the positive side.
 
 However, Poisson regression assumes that the mean and variance of the response variable are equal. We use a dispersion test to test if the Poisson regression is appropriate for our dataset.
 
@@ -163,7 +163,19 @@ dispersion_test <- dispersiontest(model_poi)
 print(dispersion_test)
 ```
 
-As we can see the p-value is smaller than 0.05, suggesting it is not appropriate to use a Poisson model due to the overdispersion of the response variable. Therefore we try to fit a negative binomial model instead.
+As we can see the p-value is smaller than 0.05, suggesting it is not appropriate to use a Poisson model due to the overdispersion of the response variable.
+
+```{r}
+#overdispersion check
+ggplot(model_poi, aes(x=log(fitted(model_poi)), y=log((animal.sub$time_at_shelter-fitted(model_poi))**2)))+ 
+  geom_point(col="steelblue") +
+  geom_abline(slope=1, intercept=0, col="red", size=0.5, lty = "dashed") + 
+  ylab(expression((y-hat(mu))**2)) + xlab(expression(hat(mu)))
+```
+
+If Var(𝑌𝑖) \> 𝜇𝑖 we say that we have **overdispersion**. This appears to be the case for the animals data – notice in the figure above that lot of the points lie above the line of equality for mean and variance.
+
+Therefore we try to fit a negative binomial model to overcome this problem-
 
 ```{r}
 #Negative binomial model fitting
@@ -171,7 +183,21 @@ model_nb1<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_stat
 summary(model_nb1)
 ```
 
-Judging from the p-value, all levels of animal type are not significant at 95% confidence level. We take animal type and fit a new negative binomial model.
+```{r}
+#F test to determine the significance of the regression coefficients
+X2 <- sum(resid(model_nb1, type = "deviance")**2) 
+dp <- X2 / model_nb1$df.res
+dp
+summary(model_nb1, dispersion = dp)
+```
+
+With the use of the estimated dispersion parameter the Wald tests are not very reliable, so we turn to an F test to determine the significance of the regression coefficients:
+
+```{r}
+drop1(model_nb1, test = "F")
+```
+
+Judging from the p-value, all levels of animal type are not significant at 95% confidence level. We take out animal type and fit a new negative binomial model.
 
 ```{r}
 #Negative binomial model fitting without the insignificant variable
@@ -202,34 +228,44 @@ ggplot(residual_nb,aes(x = fitted_nb, y=resid_nb)) +
 
 As shown in the plot, it seems fair to say that the residuals have 0 mean and constant variance.
 
-The AIC value and residual deviance did not change much after removing the insignificant variable. Therefore we consider the second negative binomial model better than the first one.
-
 By comparing the poisson model and the second negative binomial model, we can see that the AIC value for the second negative binomial model is lower, the residuals are smaller and more constant.
 
 Therefore we consider our second negative binomial model as our final model.
 
-The intercept of the negative binomial model indicates that when intake type is confiscated, outcome type is adoption, chip statu is scan chip, log(time at shelter) is expected to be 3.78, correspoding to the time at shelter of 43.7 days on average.
+The intercept of the negative binomial model indicates that when intake type is confiscated, outcome type is adoption, chip status is scan chip, log(time at shelter) is expected to be 3.78, corresponding to the time at shelter of 43.7 days on average.
 
-Holding all other variables in the model constant, the coefficient of intake_typeOWNER SURRENDER indicates that when the intake type is surrender, log(time at shelter) is expected to decrease by -1.73 compared to when intake type is confiscated, corresponding to a 82.33% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of intake_type "OWNER SURRENDER" indicates that when the intake type is surrender, log(time at shelter) is expected to decrease by -1.73 compared to when intake type is confiscated, corresponding to a 82.33% decrease in time at shelter on average.
 
-Holding all other variables in the model constant, the coefficient of intake_typeSTRAY indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -1.31 compared to when intake type is confiscated, corresponding to a 72.89% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of intake_type "STRAY" indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -1.31 compared to when intake type is confiscated, corresponding to a 72.89% decrease in time at shelter on average.
 
-The coefficient of outcome_typeDIED is not statistically significant under the 95% confidence level, suggesting when holding all other variance constant, time at shelter is not expected to have a significant difference compared to then the outcome type is adoption.
+The coefficient of outcome_type "DIED" is not statistically significant under the 95% confidence level, suggesting when holding all other variance constant, time at shelter is not expected to have a significant difference compared to then the outcome type is adoption.
 
-Holding all other variables in the model constant, the coefficient of outcome_typeEUTHANIZED indicates that when the outcome type is euthanized, log(time at shelter) is expected to decrease by -0.59 compared to when outcome type is adopted, corresponding to a 44.8% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of outcome_type "EUTHANIZED" indicates that when the outcome type is euthanized, log(time at shelter) is expected to decrease by -0.59 compared to when outcome type is "adopted", corresponding to a 44.8% decrease in time at shelter on average.
 
-Holding all other variables in the model constant, the coefficient of outcome_typeFOSTER indicates that when the outcome type is foster, log(time at shelter) is expected to decrease by -0.58 compared to when outcome type is adopted, corresponding to a 43.99% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of outcome_type "FOSTER" indicates that when the outcome type is foster, log(time at shelter) is expected to decrease by -0.58 compared to when outcome type is adopted, corresponding to a 43.99% decrease in time at shelter on average.
 
-Holding all other variables in the model constant, the coefficient of outcome_typeRETURNED TO OWNER indicates that when the outcome type is returned to owner, log(time at shelter) is expected to decrease by -1.83 compared to when outcome type is adopted, corresponding to a 83.96% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of outcome_type "RETURNED TO OWNER " indicates that when the outcome type is returned to owner, log(time at shelter) is expected to decrease by -1.83 compared to when outcome type is adopted, corresponding to a 83.96% decrease in time at shelter on average.
 
-Holding all other variables in the model constant, the coefficient of chip_statusSCAN NO CHIP indicates that when the chip status is scan no chip, log(time at shelter) is expected to decrease by -0.21 compared to when ship status is scan chip, corresponding to a 18.77% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of chip_status "SCAN NO CHIP" indicates that when the chip status is scan no chip, log(time at shelter) is expected to decrease by -0.21 compared to when ship status is scan chip, corresponding to a 18.77% decrease in time at shelter on average.
 
-Holding all other variables in the model constant, the coefficient of chip_statusUNABLE TO SCAN indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.811 compared to when ship status is scan chip, corresponding to a 55.52% decrease in time at shelter on average.
+Holding all other variables in the model constant, the coefficient of chip_status "UNABLE TO SCAN" indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.811 compared to when ship status is scan chip, corresponding to a 55.52% decrease in time at shelter on average.
 
+### Model from Advanced Predictive Modelling
 
+Sometimes overdispersion is observed due to excess zeros in the data. It can be seen that our model has about 25% of observation consisting of zero values which is a significant amount. The zeros represent **immediate outcomes**, which are structurally different from positive shelter times.
 
+### Zero-Inflated model
 
+In zero-inflated negative binomial models, we assume that there are two processes that could be generating zeros in the data. One is a logistic process(immediate return or not) and the models the non-zero counts with a neg binomial process and the resulting data distribution is a mixture of two.
 
+```{r}
+zinb_model <- zeroinfl(time_at_shelter ~ animal_type + intake_type + outcome_type + chip_status, dist = "negbin", data = animal.sub)
+summary(zinb_model)
+```
 
+```{r}
+#Model Comparison
+AIC(model_nb2, zinb_model)
+```
 
-
+It can be seen that model now fits the data slightly better when comparing the AIC values.
