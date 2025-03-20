@@ -1,0 +1,235 @@
+---
+title: "Factors Influencing the Length of Stay for Shelter Animals"
+author: "Group 18"
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: false
+  eval: true
+  warning: false
+  message: false
+  geometry: margin=1in,landscape
+header-includes:
+  - \usepackage{float}  
+  - \floatplacement{figure}{H}  
+  - \floatplacement{table}{H}
+---
+
+Importing necessary libraries and loading the dataset:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(moderndive)
+library(gapminder)
+library(skimr)
+library(MASS)
+library(AER)
+animal_data<- read.csv("dataset18.csv")
+```
+
+## Introduction
+
+The dataset, acquired from the Dallas animal shelter, encompasses comprehensive information regarding each animal admitted to the facility. It contains vital details such as the type of animal namely {dogs, cats, wildlife, bird, livestock}, the reason for admission, and the eventual outcome i.e whether they were euthanised, returned to the owner, adopted, foster or died. This study aims to investigate a fundamental question:
+
+-   **What are the factors that influence the time an animal spends at shelter before their final outcome**
+
+## Exploratory Data Analysis
+
+Taking a closer look at the dataset:
+
+```{r}
+head(animal_data)
+```
+
+```{r}
+glimpse(animal_data)
+```
+
+Let's look at the summary statistic for our response variable i.e the time an animal spends at a shelter before their final outcome.
+
+```{r}
+animal_data[,'time_at_shelter'] %>%
+  skim()
+```
+
+The mean time spent is around six days. Additionally, 25% of the animals stayed less for one day and less. Also, 75% of the animals present stayed for nine days and less
+
+The distribution(hist plot) is right skewed depicting most animals spent quite less time in general.
+
+```{r}
+ggplot(animal_data, mapping = aes(x=time_at_shelter))+
+  geom_histogram(binwidth = 5, color="black")+
+  labs(title = "Distribution of response variable", x="Time at shelter", y="Count")
+```
+
+Now, let's look at the correlation between time of the year and the time an animal spent at the shelter.
+
+```{r}
+animal_data %>%
+  dplyr::select(month, time_at_shelter)%>%
+  get_correlation(formula = time_at_shelter~month)
+```
+
+The above coefficient states that there is very weak positive correlation between an animals time at shelter and the month of an year.
+
+Looking at the summary stats for response when grouped by the type of animals-
+
+```{r}
+animal_data%>%
+  group_by(animal_type) %>%
+  summarize(count=n(), median = median(time_at_shelter), mean = mean(time_at_shelter), Std_Dev = sd(time_at_shelter),quantile_25 = quantile(time_at_shelter, 0.25), quantile_75 = quantile(time_at_shelter, 0.75))
+```
+
+Boxplot depicting the summary stats above can be seen as-
+
+```{r}
+ggplot(animal_data, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
+  geom_boxplot()+
+  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by different types of animal") +
+  scale_fill_viridis_d(option = "G") 
+```
+
+It can be clearly seen that both BIRD and LIVESTOCK spent zero days at the shelter, whereas there are some significant outliers for DOGS and CATS where median time is four and three days respectively but some recorded dogs and cats spent more than twenty days and the extremes being around seventy days.
+
+```{r}
+ggplot(data=animal_data, aes(x=intake_type, y=time_at_shelter, fill=outcome_type))+
+  geom_col(position = "dodge")+
+  labs(x = "Intake type by outcome", y = "Time Spent at Shelter", title = "Time spent at shelter vs Outcome of the animals & their intake") +
+  scale_fill_viridis_d(option = "G")
+```
+
+It can be seen from the column graph that the animal that spent the most time at shelter where the intake was owner surrendering was Euthanised and where intake was stray they were adopted at the end.
+
+## Remove irrelavant categories
+
+```{r}
+#Removing irrelavant/outnumbered categories
+
+animal.sub<- animal_data%>%
+  filter(animal_type!='BIRD' & animal_type !='LIVESTOCK')
+```
+
+```{r}
+ggplot(animal.sub, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal_type)) +
+  geom_boxplot()+
+  labs(x = "Type of Animal", y = "Time Spent at Shelter", title = "Time spent at shelter by selected animal types") +
+  scale_fill_viridis_d(option = "G") 
+```
+
+## Model fit
+
+From the explanatory analysis part we can see that our response variable is count data and the distribution shows an exponential trend. Therefore Poisson regression and negative binominal regression are potentially suitable for the data.
+
+```{r}
+#Poisson regression model fitting
+model_poi<-glm(time_at_shelter~animal_type+intake_type+outcome_type+chip_status, family = poisson(link = "log"), data=animal.sub)
+summary(model_poi)
+```
+
+From the model result, we conclude that all variables are statistically significant under the 95% confidence level.
+
+```{r}
+#Chi-square test for the poisson model
+chi_poi <- pchisq(model_poi$null.deviance-model_poi$deviance, df=model_poi$df.null-model_poi$df.residual, lower.tail = FALSE)
+print(chi_poi)
+```
+
+The p-value in the chi-square test is lower than 0.05, suggesting the model is a good fit.
+
+```{r}
+#Residual plot of the poisson model
+residual_poi<-data.frame(fitted_poi=model_poi$fitted.values,resid_poi=residuals(model_poi, type = "deviance"))
+ggplot(residual_poi,aes(x = fitted_poi, y=resid_poi)) +
+  geom_point(color = "steelblue",alpha=0.5)+
+  geom_hline(aes(yintercept = mean(resid_poi)), color = "red", linetype = "dashed")+
+  labs(title = "Residuals of Possion Model",
+       x="Fitted Value",
+       y="Residual")
+```
+
+From the plot, we can see the residual deviances of the poisson model seem to have 0 mean. But the variace seems lager on the positive side.
+
+However, Poisson regression assumes that the mean and variance of the response variable are equal. We use a dispersion test to test if the Poisson regression is appropriate for our dataset.
+
+```{r}
+#Dispersion test
+dispersion_test <- dispersiontest(model_poi)
+print(dispersion_test)
+```
+
+As we can see the p-value is smaller than 0.05, suggesting it is not appropriate to use a Poisson model due to the overdispersion of the response variable. Therefore we try to fit a negative binomial model instead.
+
+```{r}
+#Negative binomial model fitting
+model_nb1<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_status,data=animal.sub)
+summary(model_nb1)
+```
+
+Judging from the p-value, all levels of animal type are not significant at 95% confidence level. We take animal type and fit a new negative binomial model.
+
+```{r}
+#Negative binomial model fitting without the insignificant variable
+model_nb2<-glm.nb(time_at_shelter~intake_type+outcome_type+chip_status,data=animal.sub)
+summary(model_nb2)
+```
+
+From the summary, we can see that only outcome_type at level "DIED" is not statistically significant.
+
+```{r}
+#Chisqure test for the negative binomial model
+chi_nb <- pchisq(model_nb2$null.deviance-model_nb2$deviance, df=model_nb2$df.null-model_nb2$df.residual, lower.tail = FALSE)
+print(chi_nb)
+```
+
+The p-value in the chi-square test is lower than 0.05, suggesting the model is a good fit.
+
+```{r}
+#Residual plot of the negative binomial model
+residual_nb<-data.frame(fitted_nb=model_nb2$fitted.values,resid_nb=residuals(model_nb2, type = "deviance"))
+ggplot(residual_nb,aes(x = fitted_nb, y=resid_nb)) +
+  geom_point(color = "steelblue",alpha=0.5)+
+  geom_hline(aes(yintercept = mean(resid_nb)), color = "red", linetype = "dashed")+
+  labs(title = "Residuals of Negative Binomial Model",
+       x="Fitted Value",
+       y="Residual")
+```
+
+As shown in the plot, it seems fair to say that the residuals have 0 mean and constant variance.
+
+The AIC value and residual deviance did not change much after removing the insignificant variable. Therefore we consider the second negative binomial model better than the first one.
+
+By comparing the poisson model and the second negative binomial model, we can see that the AIC value for the second negative binomial model is lower, the residuals are smaller and more constant.
+
+Therefore we consider our second negative binomial model as our final model.
+
+The intercept of the negative binomial model indicates that when intake type is confiscated, outcome type is adoption, chip statu is scan chip, log(time at shelter) is expected to be 3.78, correspoding to the time at shelter of 43.7 days on average.
+
+Holding all other variables in the model constant, the coefficient of intake_typeOWNER SURRENDER indicates that when the intake type is surrender, log(time at shelter) is expected to decrease by -1.73 compared to when intake type is confiscated, corresponding to a 82.33% decrease in time at shelter on average.
+
+Holding all other variables in the model constant, the coefficient of intake_typeSTRAY indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -1.31 compared to when intake type is confiscated, corresponding to a 72.89% decrease in time at shelter on average.
+
+The coefficient of outcome_typeDIED is not statistically significant under the 95% confidence level, suggesting when holding all other variance constant, time at shelter is not expected to have a significant difference compared to then the outcome type is adoption.
+
+Holding all other variables in the model constant, the coefficient of outcome_typeEUTHANIZED indicates that when the outcome type is euthanized, log(time at shelter) is expected to decrease by -0.59 compared to when outcome type is adopted, corresponding to a 44.8% decrease in time at shelter on average.
+
+Holding all other variables in the model constant, the coefficient of outcome_typeFOSTER indicates that when the outcome type is foster, log(time at shelter) is expected to decrease by -0.58 compared to when outcome type is adopted, corresponding to a 43.99% decrease in time at shelter on average.
+
+Holding all other variables in the model constant, the coefficient of outcome_typeRETURNED TO OWNER indicates that when the outcome type is returned to owner, log(time at shelter) is expected to decrease by -1.83 compared to when outcome type is adopted, corresponding to a 83.96% decrease in time at shelter on average.
+
+Holding all other variables in the model constant, the coefficient of chip_statusSCAN NO CHIP indicates that when the chip status is scan no chip, log(time at shelter) is expected to decrease by -0.21 compared to when ship status is scan chip, corresponding to a 18.77% decrease in time at shelter on average.
+
+Holding all other variables in the model constant, the coefficient of chip_statusUNABLE TO SCAN indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.811 compared to when ship status is scan chip, corresponding to a 55.52% decrease in time at shelter on average.
+
+
+
+
+
+
+
+
