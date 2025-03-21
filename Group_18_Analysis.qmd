@@ -30,7 +30,7 @@ library(skimr)
 library(MASS)
 library(AER)
 library(pscl)
-animal_data<- read.csv("/Users/abhinavsingh/Documents/GitHub/DAS-Group-18/dataset18.csv")
+animal_data<- read.csv("dataset18.csv")
 ```
 
 ## Introduction
@@ -128,11 +128,13 @@ From the explanatory analysis part we can see that our response variable is coun
 
 ```{r}
 #Poisson regression model fitting
-model_poi<-glm(time_at_shelter~animal_type+intake_type+outcome_type+chip_status, family = poisson(link = "log"), data=animal.sub)
+model_poi<-glm(time_at_shelter~animal_type+intake_type+chip_status, family = poisson(link = "log"), data=animal.sub)
 summary(model_poi)
 ```
 
 From the model result, we conclude that all variables are statistically significant under the 95% confidence level.
+
+We carry out a chi-square test to see if the model is a good fit and return the p value.
 
 ```{r}
 #Chi-square test for the poisson model
@@ -148,7 +150,7 @@ residual_poi<-data.frame(fitted_poi=model_poi$fitted.values,resid_poi=residuals(
 ggplot(residual_poi,aes(x = fitted_poi, y=resid_poi)) +
   geom_point(color = "steelblue",alpha=0.5)+
   geom_hline(aes(yintercept = mean(resid_poi)), color = "red", linetype = "dashed")+
-  labs(title = "Residuals of Possion Model",
+  labs(title = "Residuals of Poisson Model",
        x="Fitted Value",
        y="Residual")
 ```
@@ -179,7 +181,7 @@ Therefore we try to fit a negative binomial model to overcome this problem-
 
 ```{r}
 #Negative binomial model fitting
-model_nb1<-glm.nb(time_at_shelter~animal_type+intake_type+outcome_type+chip_status,data=animal.sub)
+model_nb1<-glm.nb(time_at_shelter~animal_type+intake_type+chip_status,data=animal.sub)
 summary(model_nb1)
 ```
 
@@ -201,11 +203,13 @@ Judging from the p-value, all levels of animal type are not significant at 95% c
 
 ```{r}
 #Negative binomial model fitting without the insignificant variable
-model_nb2<-glm.nb(time_at_shelter~intake_type+outcome_type+chip_status,data=animal.sub)
+model_nb2<-glm.nb(time_at_shelter~intake_type+chip_status,data=animal.sub)
 summary(model_nb2)
 ```
 
 From the summary, we can see that only outcome_type at level "DIED" is not statistically significant.
+
+We carry out a chi-square test to see if the model is a good fit and return the p value.
 
 ```{r}
 #Chisqure test for the negative binomial model
@@ -238,14 +242,6 @@ Holding all other variables in the model constant, the coefficient of intake_typ
 
 Holding all other variables in the model constant, the coefficient of intake_type "STRAY" indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -1.31 compared to when intake type is confiscated, corresponding to a 72.89% decrease in time at shelter on average.
 
-The coefficient of outcome_type "DIED" is not statistically significant under the 95% confidence level, suggesting when holding all other variance constant, time at shelter is not expected to have a significant difference compared to then the outcome type is adoption.
-
-Holding all other variables in the model constant, the coefficient of outcome_type "EUTHANIZED" indicates that when the outcome type is euthanized, log(time at shelter) is expected to decrease by -0.59 compared to when outcome type is "adopted", corresponding to a 44.8% decrease in time at shelter on average.
-
-Holding all other variables in the model constant, the coefficient of outcome_type "FOSTER" indicates that when the outcome type is foster, log(time at shelter) is expected to decrease by -0.58 compared to when outcome type is adopted, corresponding to a 43.99% decrease in time at shelter on average.
-
-Holding all other variables in the model constant, the coefficient of outcome_type "RETURNED TO OWNER " indicates that when the outcome type is returned to owner, log(time at shelter) is expected to decrease by -1.83 compared to when outcome type is adopted, corresponding to a 83.96% decrease in time at shelter on average.
-
 Holding all other variables in the model constant, the coefficient of chip_status "SCAN NO CHIP" indicates that when the chip status is scan no chip, log(time at shelter) is expected to decrease by -0.21 compared to when ship status is scan chip, corresponding to a 18.77% decrease in time at shelter on average.
 
 Holding all other variables in the model constant, the coefficient of chip_status "UNABLE TO SCAN" indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.811 compared to when ship status is scan chip, corresponding to a 55.52% decrease in time at shelter on average.
@@ -256,16 +252,18 @@ Sometimes overdispersion is observed due to excess zeros in the data. It can be 
 
 ### Zero-Inflated model
 
-In zero-inflated negative binomial models, we assume that there are two processes that could be generating zeros in the data. One is a logistic process(immediate return or not) and the models the non-zero counts with a neg binomial process and the resulting data distribution is a mixture of two.
+In zero-inflated negative binomial models, we assume that there are two processes. One is a logistic process(immediate return or not) and the other models the non-zero counts with a neg binomial process and the resulting data distribution is a mixture of the two.
 
 ```{r}
-zinb_model <- zeroinfl(time_at_shelter ~ animal_type + intake_type + outcome_type + chip_status, dist = "negbin", data = animal.sub)
+zinb_model <- zeroinfl(time_at_shelter ~ animal_type + intake_type + chip_status, dist = "negbin", data = animal.sub)
 summary(zinb_model)
 ```
+
+The model comparison by AIC value is carried out.
 
 ```{r}
 #Model Comparison
 AIC(model_nb2, zinb_model)
 ```
 
-It can be seen that model now fits the data slightly better when comparing the AIC values.
+It can be seen that the model now fits the data slightly better when comparing the AIC values.
