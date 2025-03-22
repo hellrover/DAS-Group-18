@@ -124,7 +124,7 @@ ggplot(animal.sub, mapping = aes(x=animal_type, y=time_at_shelter, fill = animal
 
 ## Model fit
 
-From the explanatory analysis part we can see that our response variable is count data and the distribution shows an exponential trend. Therefore Poisson regression and negative binominal regression are potentially suitable for the data.
+From the explanatory analysis part we can see that our response variable is count data and the distribution shows an exponential trend. Therefore Poisson regression and negative binomial regression are potentially suitable for the data.
 
 ```{r}
 #Poisson regression model fitting
