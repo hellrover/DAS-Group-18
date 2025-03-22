@@ -3305,8 +3305,8 @@ AIC: 11214
 Number of Fisher Scoring iterations: 6</code></pre>
 </div>
 </div>
-<p>From the model result, we conclude that all variables are statistically significant under the 95% confidence level.</p>
-<p>We carry out a chi-square test to see if the model is a good fit and return the p value.</p>
+<p>From the model result, we conclude that only the coefficient of animal_type at level “WILDLIFE” is not statistically significant under the 95% confidence level, meaning when animal type changes from cat to wildlife the time at shelter is not expected to have a significant change.</p>
+<p>We carry out a chi-square test to see if the model is a good fit and return the p-value.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 1.478603e-73</code></pre>
@@ -3322,7 +3322,7 @@ Number of Fisher Scoring iterations: 6</code></pre>
 </div>
 </div>
 </div>
-<p>From the plot, we can see the residual deviances of the poisson model seem to have 0 mean. But the variance seems larger on the positive side.</p>
+<p>From the plot, we can see the residual deviances of the Poisson model seem to have 0 mean. But the variance seems larger on the positive side.</p>
 <p>However, Poisson regression assumes that the mean and variance of the response variable are equal. We use a dispersion test to test if the Poisson regression is appropriate for our dataset.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
@@ -3348,7 +3348,7 @@ dispersion
 </div>
 </div>
 <p>If Var(𝑌𝑖) &gt; 𝜇𝑖 we say that we have <strong>overdispersion</strong>. This appears to be the case for the animals data – notice in the figure above that lot of the points lie above the line of equality for mean and variance.</p>
-<p>Therefore we try to fit a negative binomial model to overcome this problem-</p>
+<p>Therefore we try to fit a negative binomial model to overcome this problem.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>
@@ -3468,8 +3468,8 @@ Number of Fisher Scoring iterations: 1
  2 x log-likelihood:  -6458.3150 </code></pre>
 </div>
 </div>
-<p>From the summary, we can see that only outcome_type at level “DIED” is not statistically significant.</p>
-<p>We carry out a chi-square test to see if the model is a good fit and return the p value.</p>
+<p>From the summary, we can see that only the coefficient of chip_status at level “SCAN NO CHIP” is not statistically significant, meaning when chip status changes from scan chip to scan no chip the time at shelter is not expected to have a significant change.</p>
+<p>We carry out a chi-square test to see if the model is a good fit and return the p-value.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 2.064469e-07</code></pre>
@@ -3486,20 +3486,20 @@ Number of Fisher Scoring iterations: 1
 </div>
 </div>
 <p>As shown in the plot, it seems fair to say that the residuals have 0 mean and constant variance.</p>
-<p>By comparing the poisson model and the second negative binomial model, we can see that the AIC value for the second negative binomial model is lower, the residuals are smaller and more constant.</p>
+<p>By comparing the Poisson model and the second negative binomial model, we can see that the AIC value for the second negative binomial model is lower, and the residuals are smaller and more constant.</p>
 <p>Therefore we consider our second negative binomial model as our final model.</p>
-<p>The intercept of the negative binomial model indicates that when intake type is confiscated, outcome type is adoption, chip status is scan chip, log(time at shelter) is expected to be 3.78, corresponding to the time at shelter of 43.7 days on average.</p>
-<p>Holding all other variables in the model constant, the coefficient of intake_type “OWNER SURRENDER” indicates that when the intake type is surrender, log(time at shelter) is expected to decrease by -1.73 compared to when intake type is confiscated, corresponding to a 82.33% decrease in time at shelter on average.</p>
-<p>Holding all other variables in the model constant, the coefficient of intake_type “STRAY” indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -1.31 compared to when intake type is confiscated, corresponding to a 72.89% decrease in time at shelter on average.</p>
-<p>Holding all other variables in the model constant, the coefficient of chip_status “SCAN NO CHIP” indicates that when the chip status is scan no chip, log(time at shelter) is expected to decrease by -0.21 compared to when ship status is scan chip, corresponding to a 18.77% decrease in time at shelter on average.</p>
-<p>Holding all other variables in the model constant, the coefficient of chip_status “UNABLE TO SCAN” indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.811 compared to when ship status is scan chip, corresponding to a 55.52% decrease in time at shelter on average.</p>
+<p>The intercept of the negative binomial model indicates that when intake type is confiscated, outcome type is adoption, chip status is scan chip, log(time at shelter) is expected to be 2.5, corresponding to the time at shelter of 12.17 days on average.</p>
+<p>Holding all other variables in the model constant, the coefficient of intake_type “OWNER SURRENDER” indicates that when the intake type is surrender, log(time at shelter) is expected to decrease by -0.79 compared to when intake type is confiscated, corresponding to a 54.54% decrease in time at shelter on average.</p>
+<p>Holding all other variables in the model constant, the coefficient of intake_type “STRAY” indicates that when the intake type is stray, log(time at shelter) is expected to decrease by -0.52 compared to when intake type is confiscated, corresponding to a 40.36% decrease in time at shelter on average.</p>
+<p>Judging from the p-value, the coefficient of chip_status “SCAN NO CHIP” is not statistically significant under the 95% confidence level, which means that holding all other variables in the model constant, the time at shelter when animal chip status is scan no chip is not expected to be significantly different than when animal chip status is scan chip.</p>
+<p>Holding all other variables in the model constant, the coefficient of chip_status “UNABLE TO SCAN” indicates that when the chip status is unable to scan, log(time at shelter) is expected to decrease by -0.71 compared to when ship status is scan chip, corresponding to a 50.97% decrease in time at shelter on average.</p>
 <section id="model-from-advanced-predictive-modelling" class="level3">
 <h3 class="anchored" data-anchor-id="model-from-advanced-predictive-modelling">Model from Advanced Predictive Modelling</h3>
 <p>Sometimes overdispersion is observed due to excess zeros in the data. It can be seen that our model has about 25% of observation consisting of zero values which is a significant amount. The zeros represent <strong>immediate outcomes</strong>, which are structurally different from positive shelter times.</p>
 </section>
 <section id="zero-inflated-model" class="level3">
 <h3 class="anchored" data-anchor-id="zero-inflated-model">Zero-Inflated model</h3>
-<p>In zero-inflated negative binomial models, we assume that there are two processes that could be generating zeros in the data. One is a logistic process(immediate return or not) and the models the non-zero counts with a neg binomial process and the resulting data distribution is a mixture of two.</p>
+<p>In zero-inflated negative binomial models, we assume that there are two processes. One is a logistic process(immediate return or not) and the other models the non-zero counts with a neg binomial process and the resulting data distribution is a mixture of the two.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>
@@ -3539,6 +3539,7 @@ Number of iterations in BFGS optimization: 21
 Log-likelihood: -3171 on 15 Df</code></pre>
 </div>
 </div>
+<p>The model comparison by AIC value is carried out.</p>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
 <pre><code>           df      AIC
@@ -3546,7 +3547,7 @@ model_nb2   6 6470.315
 zinb_model 15 6371.356</code></pre>
 </div>
 </div>
-<p>It can be seen that model now fits the data slightly better when comparing the AIC values.</p>
+<p>It can be seen that the model now fits the data slightly better when comparing the AIC values.</p>
 </section>
 </section>
 
